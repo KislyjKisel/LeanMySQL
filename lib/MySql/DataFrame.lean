@@ -4,8 +4,10 @@
   Authors: Arthur Paulino
 -/
 
-import DataEntries
-import Utils
+import MySql.DataEntries
+import MySql.Utils
+
+namespace MySql
 
 inductive DataType
   | TInt
@@ -73,7 +75,7 @@ def DataEntries.toStrings (r : DataEntries) : List String :=
   * The rows, containing the actual data
   * A consistenty rule, guaranteeing that every row obeys to the scheme -/
 structure DataFrame where
-  header     : Header 
+  header     : Header
   rows       : List DataEntries
   consistent : rowsOfTypes rows header.colTypes := by simp
 

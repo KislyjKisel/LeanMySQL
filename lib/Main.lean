@@ -4,10 +4,12 @@
   Authors: Arthur Paulino
 -/
 
-import LeanMySQL
+import MySql
+
+open MySql
 
 def main : IO Unit := do
-  let mysql ← MySQL.mk
+  let mysql ← MySql.mk
   IO.println $ mysql.version
   mysql.login "localhost" "root" "root"
   mysql.createDB "test_db"

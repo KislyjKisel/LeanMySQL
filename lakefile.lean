@@ -3,29 +3,31 @@ import Lake
 open System Lake DSL
 
 def leanSoureDir := "lib"
-def cppCompiler := "c++"
-def cppDir : FilePath := "c"
-def ffiSrc := cppDir / "ffi.c"
+def cCompiler := "cc"
+def cDir : FilePath := "c"
+def ffiSrc := cDir / "ffi.c"
 def ffiO := "ffi.o"
 def ffiLib := "libffi.a"
 def includesDir := "/usr/include/"
 def libsDir := "/usr/lib/x86_64-linux-gnu/"
 def mySQLLinkArg := "-lmysqlclient"
 
-def ffiOTarget (pkgDir : FilePath) : FileTarget :=
-  let oFile := pkgDir / defaultBuildDir / cppDir / ffiO
-  let srcTarget := inputFileTarget <| pkgDir / ffiSrc
-  fileTargetWithDep oFile srcTarget fun srcFile => do
-    compileO oFile srcFile
-      #["-I", (← getLeanIncludeDir).toString, "-I", includesDir] cppCompiler
+require std from git
+  "https://github.com/leanprover/std4" @ "409a644"
 
-def cLibTarget (pkgDir : FilePath) : FileTarget :=
-  let libFile := pkgDir / defaultBuildDir / cppDir / ffiLib
-  staticLibTarget libFile #[ffiOTarget pkgDir]
-
-package LeanMySQL (pkgDir) {
+package mysql {
   srcDir := leanSoureDir
-  libRoots := #[`LeanMySQL, `DataFrame, `DataEntries, `SQLDSL, `SQLSyntax, `Utils]
-  moreLibTargets := #[cLibTarget pkgDir]
+}
+
+lean_lib MySql
+lean_exe Main {
   moreLinkArgs := #["-L", libsDir, mySQLLinkArg]
 }
+
+extern_lib «mysql-ffi» pkg := do
+  let libFile := pkg.dir / defaultBuildDir / cDir / ffiLib
+  let oFile := pkg.dir / defaultBuildDir / cDir / ffiO
+  let srcTarget ← inputFile <| pkg.dir / ffiSrc
+  let weakArgs := #["-I", (← getLeanIncludeDir).toString]
+  let traceArgs := #["-I", includesDir]
+  buildStaticLib libFile #[← buildO "ffi.c" oFile srcTarget weakArgs traceArgs cCompiler]

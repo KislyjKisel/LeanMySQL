@@ -4,14 +4,16 @@
   Authors: Arthur Paulino
 -/
 
-import DataFrame
+import MySql.DataFrame
 import Std
-import SQLSyntax
+import MySql.SQLSyntax
+
+namespace MySql
 
 @[extern "lean_mysql_initialize"]
-constant initMySQL : BaseIO Unit
+opaque initMySql : BaseIO Unit
 
-builtin_initialize initMySQL
+builtin_initialize initMySql
 
 /- Conventioned `DataType` of certain strings -/
 open Std (HashMap) in
@@ -42,15 +44,17 @@ def DataFrame.fromString (s : String) : DataFrame := Id.run do
           panic! s!"inconsistent entries: {entries}"
       df
 
-abbrev MySQLScheme := List (String × String)
+abbrev MySqlScheme := List (String × String)
 
-def MySQLScheme.build (ts : MySQLScheme) : String :=
+def MySqlScheme.build (ts : MySqlScheme) : String :=
   s!"({",".intercalate (ts.map fun v => " ".intercalate [v.1, v.2])})"
 
 def DataEntries.build (r : DataEntries) : String :=
   s!"({",".intercalate (r.toStrings)})"
 
-constant MySQL : Type
+opaque MySqlPointed : NonemptyType
+def MySql := MySqlPointed.type
+instance : Nonempty MySql := MySqlPointed.property
 
 def kb (b : UInt64) : UInt64 := 1024 * b
 
@@ -58,61 +62,61 @@ def mb (b : UInt64) : UInt64 := 1048576 * b
 
 def gb (b : UInt64) : UInt64 := 1073741824 * b
 
-namespace MySQL
+namespace MySql
 
-/- Instantiates the object that provides access to MySQL API -/
+/- Instantiates the object that provides access to MySql API -/
 @[extern "lean_mysql_mk"]
-constant mk (bufferSize : UInt64 := kb 8) : IO MySQL
+opaque mk (bufferSize : UInt64 := kb 8) : IO MySql
 
 /- Sets the buffer size for queries -/
 @[extern "lean_mysql_set_buffer_size"]
-constant setBufferSizeMB (bufferSize : UInt64) : IO Unit
+opaque setBufferSizeMB (bufferSize : UInt64) : IO Unit
 
-/- MySQL server version -/
+/- MySql server version -/
 @[extern "lean_mysql_version"]
-constant version (m : MySQL) : String
+opaque version (m : MySql) : String
 
-/- Makes the login in the MySQL server -/
+/- Makes the login in the MySql server -/
 @[extern "lean_mysql_login"]
-constant login (m : MySQL) (h u p : String) : IO Unit
+opaque login (m : MySql) (h u p : String) : IO Unit
 
 @[extern "lean_mysql_run"]
-private constant run (m : MySQL) (q : String) : IO Unit
+private opaque run (m : MySql) (q : String) : IO Unit
 
 /- Creates a new database -/
-def createDB (m : MySQL) (d : String) : IO Unit :=
+def createDB (m : MySql) (d : String) : IO Unit :=
   m.run ("create database " ++ d)
 
 /- Drops a database -/
-def dropDB (m : MySQL) (d : String) : IO Unit :=
+def dropDB (m : MySql) (d : String) : IO Unit :=
   m.run ("drop database " ++ d)
 
 /- Sets a database to be used -/
-def useDB (m : MySQL) (d : String) : IO Unit :=
+def useDB (m : MySql) (d : String) : IO Unit :=
   m.run ("use " ++ d)
 
 /- Creates a table in the currently used database -/
-def createTable (m : MySQL) (n : String) (ts : MySQLScheme) : IO Unit :=
+def createTable (m : MySql) (n : String) (ts : MySqlScheme) : IO Unit :=
   m.run ("create table " ++ (n ++ ts.build))
 
 /- Drops a table in the currently used database -/
-def dropTable (m : MySQL) (n : String) : IO Unit :=
+def dropTable (m : MySql) (n : String) : IO Unit :=
   m.run ("drop table " ++ n)
 
 /- Inserts a row into a table -/
-def insertIntoTable (m : MySQL) (n : String) (r : DataEntries) : IO Unit :=
+def insertIntoTable (m : MySql) (n : String) (r : DataEntries) : IO Unit :=
   m.run s!"insert into {n} values{r.build}"
 
 @[extern "lean_mysql_process_query_result"]
-private constant processQueryResult (m : MySQL) : String
+private opaque processQueryResult (m : MySql) : String
 
 /- Runs an SQL query and returns a `DataFrame` with the results -/
-def query (m : MySQL) (q : SQLQuery) : IO DataFrame := do
+def query (m : MySql) (q : SQLQuery) : IO DataFrame := do
   m.run q.toString
   pure $ DataFrame.fromString (processQueryResult m)
 
-/- Closes the connection with the MySQL server -/
+/- Closes the connection with the MySql server -/
 @[extern "lean_mysql_close"]
-constant close (m : MySQL) : BaseIO Unit
+opaque close (m : MySql) : BaseIO Unit
 
-end MySQL
+end MySql

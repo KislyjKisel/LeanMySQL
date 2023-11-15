@@ -4,7 +4,9 @@
   Authors: Arthur Paulino
 -/
 
-import Utils
+import MySql.Utils
+
+namespace MySql
 
 inductive DataEntry
   | EInt (i : Int)
@@ -37,7 +39,7 @@ instance : Coe String DataEntry where
   coe := DataEntry.EString
 
 /- The `String` representation of a `DataEntry` -/
-protected def DataEntry.toString (e : DataEntry) : String := 
+protected def DataEntry.toString (e : DataEntry) : String :=
   match e with
   | EInt e    => toString e
   | EFloat e  => optimizeFloatString $ toString e

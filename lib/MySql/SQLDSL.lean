@@ -4,7 +4,9 @@
   Authors: Arthur Paulino
 -/
 
-import DataEntries
+import MySql.DataEntries
+
+namespace MySql
 
 inductive SQLSelectField
   | col   : String → SQLSelectField
@@ -49,7 +51,7 @@ structure SQLQuery where
 
 def SQLSelectField.toString : SQLSelectField → String
   | col   c   => c
-  | alias c a => s!"{c} AS {a}"
+  | .alias c a => s!"{c} AS {a}"
 
 instance : ToString SQLSelectField := ⟨SQLSelectField.toString⟩
 
@@ -93,7 +95,7 @@ instance : ToString SQLJoin := ⟨SQLJoin.toString⟩
 
 def SQLFrom.toString : SQLFrom → String
   | table s            => s
-  | alias f s          => s!"({f.toString}) AS {s}"
+  | .alias f s          => s!"({f.toString}) AS {s}"
   | join  j l r p      => s!"{l.toString} {j} JOIN {r.toString} ON {p}"
   | implicitJoin t₁ t₂ => s!"{t₁.toString}, {t₂.toString}"
 

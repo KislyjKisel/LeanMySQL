@@ -6,24 +6,13 @@
 
 import Std
 
+namespace MySql
+
 /- Auxiliary functions to represent a `DataFrame` as a `String` -/
 
 /- Removes trailing zeros form the right side of a string -/
-def withoutRightmostZeros (s : String) : String := Id.run do
-  if s ≠ "" then
-    let data := s.data
-    let mut rangeList : List Nat := []
-    for i in [0 : data.length] do
-      rangeList := rangeList.concat i
-    for i in rangeList.reverse do
-      if (data.get! i) ≠ '0' then
-        let sub : Substring := ⟨s, 0, i + 1⟩
-        return sub.toString
-      if i = 0 then
-        return ""
-    s
-  else
-    s
+def withoutRightmostZeros (s : Substring) : Substring :=
+  s.dropRightWhile (· == '0')
 
 /- Makes a string representation of a `Float` more compact -/
 def optimizeFloatString (s : String) : String :=
@@ -34,7 +23,7 @@ def optimizeFloatString (s : String) : String :=
   else
     if length = 2 then
       let cleanR := withoutRightmostZeros split.getLast!
-      split.head! ++ "." ++ (if cleanR.isEmpty then "0" else cleanR)
+      split.head! ++ "." ++ (if cleanR.isEmpty then "0" else cleanR.toString)
     else
       panic! "ill-formed float string"
 
