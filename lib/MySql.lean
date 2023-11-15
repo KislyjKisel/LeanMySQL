@@ -78,10 +78,10 @@ opaque version (m : MySql) : String
 
 /- Makes the login in the MySql server -/
 @[extern "lean_mysql_login"]
-opaque login (m : MySql) (h u p : String) : IO Unit
+opaque login (m : @& MySql) (h u p : @& String) : IO Unit
 
 @[extern "lean_mysql_run"]
-private opaque run (m : MySql) (q : String) : IO Unit
+private opaque run (m : @& MySql) (q : @& String) : IO Unit
 
 /- Creates a new database -/
 def createDB (m : MySql) (d : String) : IO Unit :=
@@ -108,7 +108,7 @@ def insertIntoTable (m : MySql) (n : String) (r : DataEntries) : IO Unit :=
   m.run s!"insert into {n} values{r.build}"
 
 @[extern "lean_mysql_process_query_result"]
-private opaque processQueryResult (m : MySql) : String
+private opaque processQueryResult (m : @& MySql) : String
 
 /- Runs an SQL query and returns a `DataFrame` with the results -/
 def query (m : MySql) (q : SQLQuery) : IO DataFrame := do
@@ -117,6 +117,6 @@ def query (m : MySql) (q : SQLQuery) : IO DataFrame := do
 
 /- Closes the connection with the MySql server -/
 @[extern "lean_mysql_close"]
-opaque close (m : MySql) : BaseIO Unit
+opaque close (m : @& MySql) : BaseIO Unit
 
 end MySql

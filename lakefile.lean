@@ -20,6 +20,8 @@ package mysql {
 }
 
 lean_lib MySql
+
+@[default_target]
 lean_exe Main {
   moreLinkArgs := #["-L", libsDir, mySQLLinkArg]
 }

@@ -6,23 +6,17 @@
 
 #include <lean/lean.h>
 #include <mysql/mysql.h>
-#include <mysql/field_types.h>
 #include <string.h>
 
-#define internal inline static
-#define external extern "C"
-#define l_arg b_lean_obj_arg
-#define l_res lean_obj_res
-
 typedef struct mysql {
-    MYSQL* connection = NULL;
-    char       logged = 0;
-    int        status = 0;
-    int   buffer_size = 0;
-    int    buffer_pos = 0;
-    char*      buffer = NULL;
-    char   has_result = 0;
-    MYSQL_RES* result = NULL;
+    MYSQL* connection;
+    char       logged;
+    int        status;
+    int   buffer_size;
+    int    buffer_pos;
+    char*      buffer;
+    char   has_result;
+    MYSQL_RES* result;
 } mysql;
 
 static lean_external_class* g_mysql_external_class = NULL;
@@ -43,25 +37,25 @@ static const char* TYPE_SEP = "^^";
 static const char* COL_SEP = "~~";
 static const char* LINE_SEP = "¨¨";
 
-internal lean_object* mysql_box(mysql* m) {
+static lean_object* mysql_box(mysql* m) {
     return lean_alloc_external(g_mysql_external_class, m);
 }
 
-internal mysql* mysql_unbox(lean_object* o) {
+static mysql* mysql_unbox(lean_object* o) {
     return (mysql*) (lean_get_external_data(o));
 }
 
-internal l_res make_error(const char* err_msg) {
+static lean_obj_res make_error(const char* err_msg) {
     return lean_mk_io_user_error(lean_mk_io_user_error(lean_mk_string(err_msg)));
 }
 
-internal void close_connection(mysql* m) {
+static void close_connection(mysql* m) {
     m->logged = 0;
     mysql_free_result(m->result);
     mysql_close(m->connection);
 }
 
-internal void mysql_finalizer(void* mysql_ptr) {
+static void mysql_finalizer(void* mysql_ptr) {
     mysql* m = (mysql*) mysql_ptr;
     close_connection(m);
     if (m->connection) {
@@ -71,14 +65,14 @@ internal void mysql_finalizer(void* mysql_ptr) {
     free(m);
 }
 
-internal void noop_foreach(void* mod, l_arg fn) {}
+static void noop_foreach(void* mod, b_lean_obj_arg fn) {}
 
-internal void query(mysql* m, const char* q) {
+static void query(mysql* m, const char* q) {
     m->status = mysql_query(m->connection, q);
     m->result = mysql_store_result(m->connection);
 }
 
-internal char append_to_buffer(mysql* m, const char* s) {
+static char append_to_buffer(mysql* m, const char* s) {
     int size = strlen(s);
     if (m->buffer_size - m->buffer_pos < size + 1) {
         return 0;
@@ -88,7 +82,7 @@ internal char append_to_buffer(mysql* m, const char* s) {
     return 1;
 }
 
-internal const char* type_to_str(int t) {
+static const char* type_to_str(int t) {
     switch (t) {
         case MYSQL_TYPE_TINY:
             return INT;
@@ -113,23 +107,29 @@ internal const char* type_to_str(int t) {
 
 // API
 
-external l_res lean_mysql_initialize() {
+LEAN_EXPORT lean_obj_res lean_mysql_initialize() {
     g_mysql_external_class = lean_register_external_class(mysql_finalizer, noop_foreach);
     return lean_io_result_mk_ok(lean_box(0));
 }
 
-external l_res lean_mysql_mk(uint64_t b) {
+LEAN_EXPORT lean_obj_res lean_mysql_mk(uint64_t b) {
     mysql* m = (mysql*) malloc(sizeof(mysql));
     char* buffer = (char*)malloc(b);
     if (!buffer) {
         return make_error(ERR_NO_MEM);
     }
-    m->buffer = buffer;
+    m->connection = NULL;
+    m->logged = 0;
+    m->status = 0;
     m->buffer_size = b;
+    m->buffer_pos = 0;
+    m->buffer = buffer;
+    m->has_result = 0;
+    m->result = NULL;
     return lean_io_result_mk_ok(mysql_box(m));
 }
 
-external l_res lean_mysql_set_buffer_size(l_arg m_, uint64_t b) {
+LEAN_EXPORT lean_obj_res lean_mysql_set_buffer_size(b_lean_obj_arg m_, uint64_t b) {
     mysql* m = mysql_unbox(m_);
     char* buffer = (char*)malloc(b);
     if (!buffer) {
@@ -141,11 +141,11 @@ external l_res lean_mysql_set_buffer_size(l_arg m_, uint64_t b) {
     return lean_io_result_mk_ok(lean_box(0));
 }
 
-external l_res lean_mysql_version() {
+LEAN_EXPORT lean_obj_res lean_mysql_version() {
     return lean_mk_string(mysql_get_client_info());
 }
 
-external l_res lean_mysql_login(l_arg m_, l_arg h_, l_arg u_, l_arg p_) {
+LEAN_EXPORT lean_obj_res lean_mysql_login(b_lean_obj_arg m_, b_lean_obj_arg h_, b_lean_obj_arg u_, b_lean_obj_arg p_) {
     mysql* m = mysql_unbox(m_);
     if (m->logged) {
         return make_error(ERR_ALRDY_LOGGED);
@@ -174,7 +174,7 @@ external l_res lean_mysql_login(l_arg m_, l_arg h_, l_arg u_, l_arg p_) {
     }
 }
 
-external l_res lean_mysql_run(l_arg m_, l_arg q_) {
+LEAN_EXPORT lean_obj_res lean_mysql_run(b_lean_obj_arg m_, b_lean_obj_arg q_) {
     mysql* m = mysql_unbox(m_);
     if (!m->logged) {
         return make_error(ERR_NOT_LOGGED);
@@ -187,7 +187,7 @@ external l_res lean_mysql_run(l_arg m_, l_arg q_) {
     return lean_io_result_mk_ok(lean_box(0));
 }
 
-external l_res lean_mysql_process_query_result(l_arg m_) {
+LEAN_EXPORT lean_obj_res lean_mysql_process_query_result(b_lean_obj_arg m_) {
     mysql* m = mysql_unbox(m_);
 
     m->buffer_pos = 0;
@@ -247,7 +247,7 @@ external l_res lean_mysql_process_query_result(l_arg m_) {
     return lean_mk_string(m->buffer);
 }
 
-external l_res lean_mysql_close(l_arg m_) {
+LEAN_EXPORT lean_obj_res lean_mysql_close(b_lean_obj_arg m_) {
     mysql* m = mysql_unbox(m_);
     close_connection(m);
     return lean_io_result_mk_ok(lean_box(0));
