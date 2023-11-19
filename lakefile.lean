@@ -19,7 +19,7 @@ def podConfig : NameMap String := Id.run $ do
   cfg
 
 require std from git
-  "https://github.com/leanprover/std4" @ "409a644"
+  "https://github.com/leanprover/std4" @ "01f7ec0"
 
 require pod from git
   "https://github.com/KislyjKisel/lean-pod" @ "main" with podConfig
