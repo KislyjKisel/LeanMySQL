@@ -32,7 +32,60 @@ instance : Inhabited Date := .mk {
   day_lt := by decide
 }
 
-def Date.ofSubstring? (s : Substring) : Option Date := sorry
+def Date.ofSubstring? (s : Substring) : Option Date :=
+  let i : String.Pos := s.startPos
+  let y0 := s.str.get i
+  let i := i + ⟨1⟩
+  let y1 := s.str.get i
+  let i := i + ⟨1⟩
+  let y2 := s.str.get i
+  let i := i + ⟨1⟩
+  let y3 := s.str.get i
+  let i := i + ⟨1⟩
+  let year := (y0.val - '0'.val) * 1000 + (y1.val - '0'.val) * 100 +
+    (y2.val - '0'.val) * 10 + (y3.val - '0'.val) |>.toUInt16
+  if h: (1000 ≤ year ∧ year ≤ 9999) ∧
+    (y0.isDigit && y1.isDigit && y2.isDigit && y3.isDigit && s.str.get i == '-')
+    then
+      have hy : 1000 ≤ year.toNat ∧ year.toNat ≤ 9999 := by
+        rewrite [UInt16.toNat]
+        exact h.1
+      let i := i + ⟨1⟩
+      let m0 := s.str.get i
+      let i := i + ⟨1⟩
+      let m1 := s.str.get i
+      let i := i + ⟨1⟩
+      let month := (m0.val - '0'.val) * 10 + (m1.val - '0'.val) |>.toUInt8
+      let month := month - 1
+      if h: month < 12 ∧ (m0.isDigit && m1.isDigit && s.str.get i == '-')
+        then
+          have hm : month.toNat < 12 := by
+            rewrite [UInt8.toNat]
+            exact h.1
+          let i := i + ⟨1⟩
+          let d0 := s.str.get i
+          let i := i + ⟨1⟩
+          let d1 := s.str.get i
+          let i := i + ⟨1⟩
+          let day := (d0.val - '0'.val) * 10 + (d1.val - '0'.val) |>.toUInt8
+          let day := day - 1
+          if h: day < 31 ∧ (d0.isDigit && d1.isDigit && i == s.stopPos)
+            then
+              have hd : day.toNat < 31 := by
+                rewrite [UInt8.toNat]
+                exact h.1
+              some {
+                year, month, day
+                year_ge_and_le := hy
+                month_lt := hm
+                day_lt := hd
+              }
+            else
+              none
+        else
+          none
+    else
+      none
 
 def Date.ofSubstring! : Substring → Date :=
   Option.get! ∘ Date.ofSubstring?
@@ -65,7 +118,9 @@ def DateTime.ofSubstring? (s : Substring) : Option DateTime :=
     let hour := (h0.val - '0'.val) * 10 + (h1.val - '0'.val) |>.toUInt8
     if h: hour < 24 ∧ (h0.isDigit && h1.isDigit && s.str.get i == ':')
       then
-        have hh : hour.toNat < 24 := sorry
+        have hh : hour.toNat < 24 := by
+          rewrite [UInt8.toNat]
+          exact h.1
         let i := i + ⟨1⟩
         let m0 := s.str.get i
         let i := i + ⟨1⟩
@@ -74,15 +129,20 @@ def DateTime.ofSubstring? (s : Substring) : Option DateTime :=
         let minute := (m0.val - '0'.val) * 10 + (m1.val - '0'.val) |>.toUInt8
         if h: minute < 60 ∧ (m0.isDigit && m1.isDigit && s.str.get i == ':')
           then
-            have hm : minute.toNat < 60 := sorry
+            have hm : minute.toNat < 60 := by
+              rewrite [UInt8.toNat]
+              exact h.1
             let i := i + ⟨1⟩
             let s0 := s.str.get i
             let i := i + ⟨1⟩
             let s1 := s.str.get i
+            let i := i + ⟨1⟩
             let second := (s0.val - '0'.val) * 10 + (s1.val - '0'.val) |>.toUInt8
-            if h: second < 60 ∧ (s0.isDigit && s1.isDigit)
+            if h: second < 60 ∧ (s0.isDigit && s1.isDigit && i == s.stopPos)
               then
-                have hs : second.toNat < 60 := sorry
+                have hs : second.toNat < 60 := by
+                  rewrite [UInt8.toNat]
+                  exact h.1
                 some { date with
                   hour, minute, second
                   hour_lt := hh
@@ -119,15 +179,15 @@ deriving Inhabited
 
 instance {n} : OfNat DataEntry n where
   ofNat :=
-    if h: n < 2 ^ 8 then
+    if h: n < UInt8.size then
       .tinyint ⟨n, h⟩
-    else if h: n < 2 ^ 16 then
+    else if h: n < UInt16.size then
       .smallint ⟨n, h⟩
     else if h: n < 2 ^ 24 then
       .mediumint ⟨n, Nat.lt_trans h (by decide)⟩ h
-    else if h: n < 2 ^ 32 then
+    else if h: n < UInt32.size then
       .int ⟨n, h⟩
-    else if h: n < 2 ^ 64 then
+    else if h: n < UInt64.size then
       .bigint ⟨n, h⟩
     else
       .varchar (toString n)
@@ -242,3 +302,5 @@ protected def DataEntry.toString : DataEntry → String
 | json x => x.compress
 
 instance : ToString DataEntry := ⟨DataEntry.toString⟩
+
+#eval DateTime.toString <$> DateTime.ofSubstring? "2023-11-20 10:45:29"
