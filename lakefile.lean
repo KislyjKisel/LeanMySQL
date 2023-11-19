@@ -17,6 +17,8 @@ require std from git
 
 package mysql {
   srcDir := leanSoureDir
+  moreLeanArgs := #["-DautoImplicit=false"]
+  moreServerArgs := #["-DautoImplicit=false"]
 }
 
 lean_lib MySql
