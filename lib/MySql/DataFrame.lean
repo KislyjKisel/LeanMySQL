@@ -10,30 +10,48 @@ import MySql.Utils
 namespace MySql
 
 inductive DataType
-  | TInt
-  | TFloat
-  | TString
-  deriving Inhabited
+| tinyint
+| smallint
+| mediumint
+| int
+| bigint
+| float
+| double
+| string
+deriving Inhabited
 
 /- Prouces a `DataEntry` given its `DataType` and a `String` -/
 def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
-  if s = "NULL" then NIL
+  if s = "NULL" then .null
   else match dataType with
-  | DataType.TInt    => s.toInt!
-  | DataType.TFloat  => toFloat! s
-  | DataType.TString => s
+  | DataType.tinyint => .tinyint s.toNat!.toUInt8
+  | DataType.smallint => .smallint s.toNat!.toUInt16
+  | DataType.mediumint =>
+    let n := s.toNat!
+    if h: n < 2 ^ 24
+      then .mediumint n.toUInt32 $ by
+        show n % 2 ^ 32 < 2 ^ 24
+        rewrite [Nat.mod_eq_of_lt $ Nat.lt_trans h (by decide)]
+        exact h
+      else panic! "mediumint ≥ 2^24"
+  | DataType.int => .int s.toNat!.toUInt32
+  | DataType.bigint => .int s.toNat!.toUInt32
+  | DataType.float => .float s.toFloat32?.get!
+  | DataType.double => .double $ toFloat! s
+  | DataType.string => s
 
-open DataType in
 /- Whether a `DataEntry` is of a `DataType` or not -/
 @[simp] def DataEntry.ofType : DataEntry → DataType → Bool
-  | EInt _,    TInt    => true
-  | EFloat _,  TFloat  => true
-  | EString _, TString => true
-  | ENull,     _       => true
-  | _,         _       => false
-
-instance : ToString DataEntry where
-  toString e := e.toString
+| .tinyint _, .tinyint => true
+| .smallint _, .smallint => true
+| .mediumint .., .mediumint => true
+| .int _, .int => true
+| .bigint _, .bigint => true
+| .float _, .float => true
+| .double _, .double => true
+| .string _, .string => true
+| .null, _ => true
+| _, _ => false
 
 abbrev Header := List (DataType × String)
 
@@ -98,13 +116,15 @@ def empty (header : Header := []) : DataFrame :=
   with the scheme of `df` -/
 theorem consistentConcatOfConsistentRow
     {df : DataFrame} (row : DataEntries)
-    (hc : row.ofTypes df.colTypes) :
+    (_hc : row.ofTypes df.colTypes) :
       rowsOfTypes (df.rows.concat row) (Header.colTypes df.header) :=
   match df with
     | ⟨_, rows, hr⟩ => by
       induction rows with
-        | nil         => simp only [colTypes] at hc; simp [hc]
-        | cons _ _ hi => exact ⟨hr.1, hi hr.2 hc⟩
+        | cons _ _ hi => exact ⟨hr.1, hi hr.2 _hc⟩
+        | nil         =>
+          simp only [colTypes] at _hc
+          simp only [rowsOfTypes, _hc, and_self]
 
 /- Adds a new row on a `DataFrame` -/
 def addRow (df : DataFrame) (row : DataEntries)

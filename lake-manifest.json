@@ -8,5 +8,13 @@
     "opts": {},
     "name": "std",
     "inputRev?": "409a644",
+    "inherited": false}},
+  {"git":
+   {"url": "https://github.com/KislyjKisel/lean-pod",
+    "subDir?": null,
+    "rev": "93942899750b9df0bcee9feff553e90d62c046f9",
+    "opts": {},
+    "name": "pod",
+    "inputRev?": "main",
     "inherited": false}}],
  "name": "mysql"}

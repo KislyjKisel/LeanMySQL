@@ -27,11 +27,16 @@ static const char* ERR_CANT_INIT = "Failed to instantiate a connection with MySQ
 static const char* ERR_NO_MEM = "Not enough memory to allocate buffer.";
 static const char* ERR_INCR_BFFR = "Not enough memory. Try increasing the buffer size.";
 
-static const char* INT = "i";
-static const char* FLOAT = "f";
-static const char* STRING = "s";
+static const char* DATATYPE_TINYINT = "t";
+static const char* DATATYPE_SMALLINT = "s";
+static const char* DATATYPE_MEDIUMINT = "m";
+static const char* DATATYPE_INT = "i";
+static const char* DATATYPE_BIGINT = "b";
+static const char* DATATYPE_FLOAT = "f";
+static const char* DATATYPE_DOUBLE = "d";
+static const char* DATATYPE_STRING = "s";
 
-static const char* NULL_ = "NULL";
+static const char* VALUE_NULL = "NULL";
 
 static const char* TYPE_SEP = "^^";
 static const char* COL_SEP = "~~";
@@ -70,8 +75,8 @@ static void mysql_finalizer(void* mysql_ptr) {
 
 static void noop_foreach(void* mod, b_lean_obj_arg fn) {}
 
-static void query(mysql* m, const char* q) {
-    m->status = mysql_query(m->connection, q);
+static void query(mysql* m, const char* q, unsigned long q_len) {
+    m->status = mysql_real_query(m->connection, q, q_len);
     m->result = mysql_store_result(m->connection);
 }
 
@@ -88,23 +93,23 @@ static char append_to_buffer(mysql* m, const char* s) {
 static const char* type_to_str(int t) {
     switch (t) {
         case MYSQL_TYPE_TINY:
-            return INT;
+            return DATATYPE_TINYINT;
         case MYSQL_TYPE_SHORT:
-            return INT;
-        case MYSQL_TYPE_LONG:
-            return INT;
-        case MYSQL_TYPE_LONGLONG:
-            return INT;
+            return DATATYPE_SMALLINT;
         case MYSQL_TYPE_INT24:
-            return INT;
-        case MYSQL_TYPE_DECIMAL:
-            return FLOAT;
+            return DATATYPE_MEDIUMINT;
+        case MYSQL_TYPE_LONG:
+            return DATATYPE_INT;
+        case MYSQL_TYPE_LONGLONG:
+            return DATATYPE_BIGINT;
         case MYSQL_TYPE_FLOAT:
-            return FLOAT;
+            return DATATYPE_FLOAT;
         case MYSQL_TYPE_DOUBLE:
-            return FLOAT;
+            return DATATYPE_DOUBLE;
+        case MYSQL_TYPE_DECIMAL:
+            return DATATYPE_DOUBLE; // TODO: Decimal type
         default:
-            return STRING;
+            return DATATYPE_STRING;
     }
 }
 
@@ -183,7 +188,7 @@ LEAN_EXPORT lean_obj_res lean_mysql_run(b_lean_obj_arg m_, b_lean_obj_arg q_, le
         return make_error(ERR_NOT_LOGGED);
     }
 
-    query(m, lean_string_cstr(q_));
+    query(m, lean_string_cstr(q_), lean_string_size(q_) - 1);
     if (m->status) {
         return make_error(mysql_error(m->connection));
     }
@@ -227,7 +232,7 @@ LEAN_EXPORT lean_obj_res lean_mysql_process_query_result(b_lean_obj_arg m_, lean
     for (int i = 0; i < num_rows; i++) {
         row = mysql_fetch_row(m->result);
         for(int j = 0; j < num_fields; j++) {
-            if (!append_to_buffer(m, row[j] ? row[j] : NULL_)) {
+            if (!append_to_buffer(m, row[j] ? row[j] : VALUE_NULL)) {
                 return make_error(ERR_INCR_BFFR);
             }
             if (j < num_fields - 1) {

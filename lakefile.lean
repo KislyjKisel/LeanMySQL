@@ -12,8 +12,17 @@ def includesDir := "/usr/include/"
 def libsDir := "/usr/lib/x86_64-linux-gnu/"
 def mySQLLinkArg := "-lmysqlclient"
 
+def podConfig : NameMap String := Id.run $ do
+  let mut cfg := NameMap.empty
+  if let some cc := get_config? cc then
+    cfg := cfg.insert `cc cc
+  cfg
+
 require std from git
   "https://github.com/leanprover/std4" @ "409a644"
+
+require pod from git
+  "https://github.com/KislyjKisel/lean-pod" @ "main" with podConfig
 
 package mysql {
   srcDir := leanSoureDir

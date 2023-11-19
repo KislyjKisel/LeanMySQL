@@ -18,8 +18,12 @@ builtin_initialize initMySql
 /- Conventioned `DataType` of certain strings -/
 open Std (HashMap) in
 def dataTypeMap : HashMap String DataType :=
-  HashMap.ofList
-    [("i", DataType.TInt), ("f", DataType.TFloat), ("s", DataType.TString)]
+  HashMap.ofList [
+    ("i1", DataType.tinyint), ("i2", DataType.smallint), ("i3", DataType.mediumint),
+    ("i4", DataType.int), ("i8", DataType.bigint),
+    ("f4", DataType.float), ("f8", DataType.double),
+    ("s", DataType.string)
+  ]
 
 /- Builds a `DataFrame` from a properly formated `String` -/
 def DataFrame.fromString (s : String) : DataFrame := Id.run do
