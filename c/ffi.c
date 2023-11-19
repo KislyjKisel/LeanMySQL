@@ -141,7 +141,7 @@ LEAN_EXPORT lean_obj_res lean_mysql_set_buffer_size(b_lean_obj_arg m_, uint64_t 
     return lean_io_result_mk_ok(lean_box(0));
 }
 
-LEAN_EXPORT lean_obj_res lean_mysql_version() {
+LEAN_EXPORT lean_obj_res lean_mysql_version(lean_obj_arg unit) {
     return lean_mk_string(mysql_get_client_info());
 }
 

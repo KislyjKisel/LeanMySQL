@@ -10,7 +10,7 @@ open MySql
 
 def main : IO Unit := do
   let mysql ← MySql.mk
-  IO.println $ mysql.version
+  IO.println version
   mysql.login "localhost" "root" "root"
   mysql.createDB "test_db"
   mysql.useDB "test_db"

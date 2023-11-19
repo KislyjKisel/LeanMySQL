@@ -62,6 +62,12 @@ def mb (b : UInt64) : UInt64 := 1048576 * b
 
 def gb (b : UInt64) : UInt64 := 1073741824 * b
 
+@[extern "lean_mysql_version"]
+private opaque getVersion : Unit → String
+
+/- MySql server version -/
+def version : String := getVersion ()
+
 namespace MySql
 
 /- Instantiates the object that provides access to MySql API -/
@@ -71,10 +77,6 @@ opaque mk (bufferSize : UInt64 := kb 8) : IO MySql
 /- Sets the buffer size for queries -/
 @[extern "lean_mysql_set_buffer_size"]
 opaque setBufferSizeMB (bufferSize : UInt64) : IO Unit
-
-/- MySql server version -/
-@[extern "lean_mysql_version"]
-opaque version (m : MySql) : String
 
 /- Makes the login in the MySql server -/
 @[extern "lean_mysql_login"]
