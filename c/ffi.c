@@ -46,21 +46,24 @@ static mysql* mysql_unbox(lean_object* o) {
 }
 
 static lean_obj_res make_error(const char* err_msg) {
-    return lean_mk_io_user_error(lean_mk_io_user_error(lean_mk_string(err_msg)));
+    return lean_io_result_mk_error(lean_mk_io_user_error(lean_mk_string(err_msg)));
 }
 
 static void close_connection(mysql* m) {
     m->logged = 0;
-    mysql_free_result(m->result);
-    mysql_close(m->connection);
+    if (m->result) {
+        mysql_free_result(m->result);
+        m->result = NULL;
+    }
+    if (m->connection) {
+        mysql_close(m->connection);
+        m->connection = NULL;
+    }
 }
 
 static void mysql_finalizer(void* mysql_ptr) {
     mysql* m = (mysql*) mysql_ptr;
     close_connection(m);
-    if (m->connection) {
-        free(m->connection);
-    }
     free(m->buffer);
     free(m);
 }
@@ -107,12 +110,12 @@ static const char* type_to_str(int t) {
 
 // API
 
-LEAN_EXPORT lean_obj_res lean_mysql_initialize() {
+LEAN_EXPORT lean_obj_res lean_mysql_initialize(lean_obj_arg world) {
     g_mysql_external_class = lean_register_external_class(mysql_finalizer, noop_foreach);
     return lean_io_result_mk_ok(lean_box(0));
 }
 
-LEAN_EXPORT lean_obj_res lean_mysql_mk(uint64_t b) {
+LEAN_EXPORT lean_obj_res lean_mysql_mk(uint64_t b, lean_obj_arg world) {
     mysql* m = (mysql*) malloc(sizeof(mysql));
     char* buffer = (char*)malloc(b);
     if (!buffer) {
@@ -129,7 +132,7 @@ LEAN_EXPORT lean_obj_res lean_mysql_mk(uint64_t b) {
     return lean_io_result_mk_ok(mysql_box(m));
 }
 
-LEAN_EXPORT lean_obj_res lean_mysql_set_buffer_size(b_lean_obj_arg m_, uint64_t b) {
+LEAN_EXPORT lean_obj_res lean_mysql_set_buffer_size(b_lean_obj_arg m_, uint64_t b, lean_obj_arg world) {
     mysql* m = mysql_unbox(m_);
     char* buffer = (char*)malloc(b);
     if (!buffer) {
@@ -145,7 +148,7 @@ LEAN_EXPORT lean_obj_res lean_mysql_version(lean_obj_arg unit) {
     return lean_mk_string(mysql_get_client_info());
 }
 
-LEAN_EXPORT lean_obj_res lean_mysql_login(b_lean_obj_arg m_, b_lean_obj_arg h_, b_lean_obj_arg u_, b_lean_obj_arg p_) {
+LEAN_EXPORT lean_obj_res lean_mysql_login(b_lean_obj_arg m_, b_lean_obj_arg h_, b_lean_obj_arg u_, b_lean_obj_arg p_, lean_obj_arg world) {
     mysql* m = mysql_unbox(m_);
     if (m->logged) {
         return make_error(ERR_ALRDY_LOGGED);
@@ -174,7 +177,7 @@ LEAN_EXPORT lean_obj_res lean_mysql_login(b_lean_obj_arg m_, b_lean_obj_arg h_, 
     }
 }
 
-LEAN_EXPORT lean_obj_res lean_mysql_run(b_lean_obj_arg m_, b_lean_obj_arg q_) {
+LEAN_EXPORT lean_obj_res lean_mysql_run(b_lean_obj_arg m_, b_lean_obj_arg q_, lean_obj_arg world) {
     mysql* m = mysql_unbox(m_);
     if (!m->logged) {
         return make_error(ERR_NOT_LOGGED);
@@ -187,7 +190,7 @@ LEAN_EXPORT lean_obj_res lean_mysql_run(b_lean_obj_arg m_, b_lean_obj_arg q_) {
     return lean_io_result_mk_ok(lean_box(0));
 }
 
-LEAN_EXPORT lean_obj_res lean_mysql_process_query_result(b_lean_obj_arg m_) {
+LEAN_EXPORT lean_obj_res lean_mysql_process_query_result(b_lean_obj_arg m_, lean_obj_arg world) {
     mysql* m = mysql_unbox(m_);
 
     m->buffer_pos = 0;
@@ -244,10 +247,10 @@ LEAN_EXPORT lean_obj_res lean_mysql_process_query_result(b_lean_obj_arg m_) {
         return make_error(ERR_INCR_BFFR);
     }
 
-    return lean_mk_string(m->buffer);
+    return lean_io_result_mk_ok(lean_mk_string(m->buffer));
 }
 
-LEAN_EXPORT lean_obj_res lean_mysql_close(b_lean_obj_arg m_) {
+LEAN_EXPORT lean_obj_res lean_mysql_close(b_lean_obj_arg m_, lean_obj_arg world) {
     mysql* m = mysql_unbox(m_);
     close_connection(m);
     return lean_io_result_mk_ok(lean_box(0));

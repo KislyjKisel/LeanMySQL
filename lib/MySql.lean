@@ -76,7 +76,7 @@ opaque mk (bufferSize : UInt64 := kb 8) : IO MySql
 
 /- Sets the buffer size for queries -/
 @[extern "lean_mysql_set_buffer_size"]
-opaque setBufferSizeMB (bufferSize : UInt64) : IO Unit
+opaque setBufferSizeMB (m : @& MySql) (bufferSize : UInt64) : IO Unit
 
 /- Makes the login in the MySql server -/
 @[extern "lean_mysql_login"]
@@ -110,12 +110,12 @@ def insertIntoTable (m : MySql) (n : String) (r : DataEntries) : IO Unit :=
   m.run s!"insert into {n} values{r.build}"
 
 @[extern "lean_mysql_process_query_result"]
-private opaque processQueryResult (m : @& MySql) : String
+private opaque processQueryResult (m : @& MySql) : BaseIO String
 
 /- Runs an SQL query and returns a `DataFrame` with the results -/
 def query (m : MySql) (q : SQLQuery) : IO DataFrame := do
   m.run q.toString
-  pure $ DataFrame.fromString (processQueryResult m)
+  pure $ DataFrame.fromString (← processQueryResult m)
 
 /- Closes the connection with the MySql server -/
 @[extern "lean_mysql_close"]
