@@ -25,14 +25,31 @@ syntax "DISTINCT " "*"           : sqlSelect
 syntax selectField,+             : sqlSelect
 syntax "DISTINCT " selectField,+ : sqlSelect
 
-declare_syntax_cat           entry
-syntax num                 : entry
-syntax "-" noWs num        : entry
-syntax str                 : entry
-syntax scientific          : entry
-syntax "-" noWs scientific : entry
-syntax "NULL"              : entry
-syntax "(" entry ")"       : entry
+declare_syntax_cat                       entry
+syntax "$`_"                           : entry
+syntax "$`" noWs ident                 : entry
+syntax "$`(" term ")"                  : entry
+syntax "sorry"                         : entry
+syntax "NULL"                          : entry
+syntax "(" entry ")"                   : entry
+syntax num                             : entry
+syntax num &"u8"                       : entry
+syntax num &"u16"                      : entry
+syntax num &"u24"                      : entry
+syntax num &"u32"                      : entry
+syntax num &"u64"                      : entry
+syntax "-" noWs num                    : entry
+syntax "-" noWs num &"u8"              : entry
+syntax "-" noWs num &"u16"             : entry
+syntax "-" noWs num &"u32"             : entry
+syntax "-" noWs num &"u64"             : entry
+syntax scientific                      : entry
+syntax scientific &"f32"               : entry
+syntax scientific &"f64"               : entry
+syntax "-" noWs scientific             : entry
+syntax "-" noWs scientific &"f32"      : entry
+syntax "-" noWs scientific &"f64"      : entry
+syntax str                             : entry
 
 declare_syntax_cat propSymbol
 syntax " = "     : propSymbol
@@ -78,20 +95,20 @@ partial def elabStrOfParsId : Syntax → TermElabM Expr
 
 def elabCol : TSyntax `selectField → TermElabM Expr
   | `(selectField|$c:parsId)             => do
-    mkAppM `MySql.SQLSelectField.col #[← elabStrOfParsId c]
+    mkAppM ``MySql.SQLSelectField.col #[← elabStrOfParsId c]
   | `(selectField|$c:parsId AS $a:ident) => do
-    mkAppM `MySql.SQLSelectField.alias #[← elabStrOfParsId c, mkStrOfIdent a]
+    mkAppM ``MySql.SQLSelectField.alias #[← elabStrOfParsId c, mkStrOfIdent a]
   | _                                    => throwUnsupportedSyntax
 
 def elabSelect : Syntax → TermElabM Expr
-  | `(sqlSelect|*)                          => mkAppM `MySql.SQLSelect.all #[mkConst ``false]
-  | `(sqlSelect|DISTINCT *)                 => mkAppM `MySql.SQLSelect.all #[mkConst ``true]
+  | `(sqlSelect|*)                          => mkAppM ``MySql.SQLSelect.all #[mkConst ``false]
+  | `(sqlSelect|DISTINCT *)                 => mkAppM ``MySql.SQLSelect.all #[mkConst ``true]
   | `(sqlSelect|$cs:selectField,*)          => do
-    let cols ← mkListLit (mkConst `MySql.SQLSelectField) (← cs.getElems.toList.mapM elabCol)
-    mkAppM `MySql.SQLSelect.list #[mkConst ``false, cols]
+    let cols ← mkListLit (mkConst ``MySql.SQLSelectField) (← cs.getElems.toList.mapM elabCol)
+    mkAppM ``MySql.SQLSelect.list #[mkConst ``false, cols]
   | `(sqlSelect|DISTINCT $cs:selectField,*) => do
-    let cols ← mkListLit (mkConst `MySql.SQLSelectField) (← cs.getElems.toList.mapM elabCol)
-    mkAppM `MySql.SQLSelect.list #[mkConst ``true, cols]
+    let cols ← mkListLit (mkConst ``MySql.SQLSelectField) (← cs.getElems.toList.mapM elabCol)
+    mkAppM ``MySql.SQLSelect.list #[mkConst ``true, cols]
   | _                                       => throwUnsupportedSyntax
 
 def mkApp' (name : Name) (e : Expr) : Expr :=
@@ -100,26 +117,83 @@ def mkApp' (name : Name) (e : Expr) : Expr :=
 def elabConst (name : Name) : TermElabM Expr :=
   pure $ mkConst name
 
+protected
+def negFloat32 (f : Pod.Float32) : Pod.Float32 :=
+  -1.0 * f
+
+protected
 def negFloat (f : Float) : Float :=
   -1.0 * f
 
+protected
+def mediumintOfNat (n : Nat) : DataEntry :=
+  let n' := n % 2 ^ 24
+  have : n' < 2 ^ 24 := Nat.mod_lt n (by decide)
+  .mediumint ⟨n', Nat.lt_trans this (by decide)⟩ this
+
+protected
+def negInt8OfNat : Nat → UInt8 :=
+  Pod.Int8.val ∘ Pod.instNegInt8.neg ∘ Pod.Int8.mk ∘ UInt8.ofNat
+
+protected
+def negInt16OfNat : Nat → UInt16 :=
+  Pod.Int16.val ∘ Pod.instNegInt16.neg ∘ Pod.Int16.mk ∘ UInt16.ofNat
+
+protected
+def negInt32OfNat : Nat → UInt32 :=
+  Pod.Int32.val ∘ Pod.instNegInt32.neg ∘ Pod.Int32.mk ∘ UInt32.ofNat
+
+protected
+def negInt64OfNat : Nat → UInt64 :=
+  Pod.Int64.val ∘ Pod.instNegInt64.neg ∘ Pod.Int64.mk ∘ UInt64.ofNat
+
 partial def elabEntry : TSyntax `entry → TermElabM Expr
-  | `(entry|$v:num)            =>
+  | `(entry|$`_) => mkFreshExprMVar (some $ mkConst ``MySql.DataEntry)
+  | `(entry|$`$v) => Term.elabIdent v (some $ mkConst ``MySql.DataEntry)
+  | `(entry|$`($v)) => Term.elabTerm v (some $ mkConst ``MySql.DataEntry)
+  | `(entry|sorry) => mkSorry (mkConst ``MySql.DataEntry) false
+  | `(entry|NULL) => elabConst ``MySql.DataEntry.null
+  | `(entry|($e:entry)) => elabEntry e
+  | `(entry|$v:num) =>
     mkAppM ``MySql.DataEntry.int #[mkApp' ``UInt32.ofNat (mkNatLit v.getNat)]
-  | `(entry|-$v:num)           =>
-    mkAppM ``MySql.DataEntry.int $ match v.getNat with
-      | Nat.zero   => #[mkApp' ``Int.ofNat (mkConst ``Nat.zero)]
-      | Nat.succ n => #[mkApp' ``Int.negSucc (mkNatLit n)]
-  | `(entry|$v:scientific)  => do
-    mkAppM ``MySql.DataEntry.double #[← Term.elabScientificLit v (mkConst `Float)]
+  | `(entry|$v:num u8) =>
+    mkAppM ``MySql.DataEntry.tinyint #[mkApp' ``UInt8.ofNat (mkNatLit v.getNat)]
+  | `(entry|$v:num u16) =>
+    mkAppM ``MySql.DataEntry.smallint #[mkApp' ``UInt16.ofNat (mkNatLit v.getNat)]
+  | `(entry|$v:num u24) =>
+    mkAppM ``MySql.DataEntry.mediumint #[mkApp' ``MySql.mediumintOfNat (mkNatLit v.getNat)]
+  | `(entry|$v:num u32) =>
+    mkAppM ``MySql.DataEntry.int #[mkApp' ``UInt32.ofNat (mkNatLit v.getNat)]
+  | `(entry|$v:num u64) =>
+    mkAppM ``MySql.DataEntry.bigint #[mkApp' ``UInt64.ofNat (mkNatLit v.getNat)]
+  | `(entry|-$v:num) =>
+    mkAppM ``MySql.DataEntry.int #[mkApp' ``MySql.negInt32OfNat (mkNatLit v.getNat)]
+  | `(entry|-$v:num u8) =>
+    mkAppM ``MySql.DataEntry.tinyint #[mkApp' ``MySql.negInt8OfNat (mkNatLit v.getNat)]
+  | `(entry|-$v:num u16) =>
+    mkAppM ``MySql.DataEntry.smallint #[mkApp' ``MySql.negInt16OfNat (mkNatLit v.getNat)]
+  | `(entry|-$v:num u32) =>
+    mkAppM ``MySql.DataEntry.int #[mkApp' ``MySql.negInt32OfNat (mkNatLit v.getNat)]
+  | `(entry|-$v:num u64) =>
+    mkAppM ``MySql.DataEntry.bigint #[mkApp' ``MySql.negInt64OfNat (mkNatLit v.getNat)]
+  | `(entry|$v:scientific) => do
+    mkAppM ``MySql.DataEntry.double #[← Term.elabScientificLit v (mkConst ``Float)]
+  | `(entry|$v:scientific f32) => do
+    mkAppM ``MySql.DataEntry.float #[← Term.elabScientificLit v (mkConst ``Pod.Float32)]
+  | `(entry|$v:scientific f64) => do
+    mkAppM ``MySql.DataEntry.double #[← Term.elabScientificLit v (mkConst ``Float)]
   | `(entry|-$v:scientific) => do
     let f ← Term.elabScientificLit v (mkConst ``Float)
     mkAppM ``MySql.DataEntry.double #[mkApp' ``MySql.negFloat f]
-  | `(entry|$v:str)            =>
+  | `(entry|-$v:scientific f32) => do
+    let f ← Term.elabScientificLit v (mkConst ``Pod.Float32)
+    mkAppM ``MySql.DataEntry.float #[mkApp' ``MySql.negFloat32 f]
+  | `(entry|-$v:scientific f64) => do
+    let f ← Term.elabScientificLit v (mkConst ``Float)
+    mkAppM ``MySql.DataEntry.double #[mkApp' ``MySql.negFloat f]
+  | `(entry|$v:str) =>
     mkAppM ``MySql.DataEntry.varchar #[mkStrLit v.getString]
-  | `(entry|NULL)              => elabConst ``MySql.DataEntry.null
-  | `(entry|($e:entry))        => elabEntry e
-  | _                          => throwUnsupportedSyntax
+  | _ => throwUnsupportedSyntax
 
 def elabPropSymbol (stx : Syntax) (isEntry : Bool) : TermElabM Name :=
   match stx with
