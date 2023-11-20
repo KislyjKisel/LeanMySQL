@@ -12,17 +12,16 @@ open Pod (Float32 Int32 Int64)
 
 namespace MySql
 
--- NOTE: `extends` + default `by decide` + construct via {...} = inf loop?
 structure Date where
   /-- [1000; 9999] -/
   year : UInt16
-  year_ge_and_le : 1000 ≤ year.toNat ∧ year.toNat ≤ 9999 -- := by decide
+  year_ge_and_le : 1000 ≤ year.toNat ∧ year.toNat ≤ 9999
   /-- [0;12) -/
   month : UInt8
-  month_lt : month.toNat < 12 -- := by decide
+  month_lt : month.toNat < 12
   /-- [0;31) -/
   day : UInt8
-  day_lt : day.toNat < 31 -- := by decide
+  day_lt : day.toNat < 31
 
 instance : Inhabited Date := .mk {
   year := 1000
@@ -93,11 +92,11 @@ def Date.ofSubstring! : Substring → Date :=
 
 structure DateTime extends Date where
   hour : UInt8
-  hour_lt : hour.toNat < 24 -- := by decide
+  hour_lt : hour.toNat < 24
   minute : UInt8
-  minute_lt : minute.toNat < 60 -- := by decide
+  minute_lt : minute.toNat < 60
   second : UInt8
-  second_lt : second.toNat < 60 -- := by decide
+  second_lt : second.toNat < 60
 
 instance : Inhabited DateTime := .mk { (default : Date) with
   hour := 0
@@ -350,10 +349,10 @@ protected def DataEntry.toString : DataEntry → String
 | tinyint x => toString x
 | smallint x => toString x
 | mediumint x _ => toString x
-| int x    => toString x
-| bigint x    => toString x
-| float x  => optimizeFloatString $ toString x
-| double x  => optimizeFloatString $ toString x
+| int x => toString x
+| bigint x => toString x
+| float x => optimizeFloatString $ toString x
+| double x => optimizeFloatString $ toString x
 | timestamp t => s!"'{(DateTime.ofTimestamp t).toString}'"
 | date d => s!"'{d.toString}'"
 | datetime d => s!"'{d.toString}'"
