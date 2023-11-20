@@ -5,9 +5,10 @@
 -/
 
 import Pod.Float
+import Pod.Int
 import MySql.Utils
 
-open Pod (Float32)
+open Pod (Float32 Int32 Int64)
 
 namespace MySql
 
@@ -156,6 +157,9 @@ def DateTime.ofSubstring? (s : Substring) : Option DateTime :=
 def DateTime.ofSubstring! : Substring → DateTime :=
   Option.get! ∘ DateTime.ofSubstring?
 
+def DateTime.first : DateTime := .ofSubstring! "1000-01-01 00:00:00"
+def DateTime.last : DateTime := .ofSubstring! "9999-12-31 23:59:59"
+
 inductive DataEntry where
 | null
 | tinyint (x : UInt8)
@@ -170,8 +174,10 @@ inductive DataEntry where
 | datetime (d : DateTime)
 | char (s : String)
 | varchar (s : String)
+| text (s : String)
 | binary (b : ByteArray)
 | varbinary (b : ByteArray)
+| blob (b : ByteArray)
 | enum (s : String)
 | set (ss : Array String)
 | json (x : Lean.Json)
@@ -259,7 +265,65 @@ def appendHex (acc : String) (b : UInt8) : String :=
       '*'
   acc.push (f $ b >>> 4) |>.push (f $ b &&& 15)
 
-def DateTime.ofTimestamp (t : UInt32) : DateTime := sorry
+def DateTime.ofTimestamp (t : UInt32) : DateTime :=
+  let z := t / 86400 + 719468
+  let era := z / 146097
+  let doe := z - era * 146097
+  let yoe := (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
+  let year := yoe + era * 400 |>.toUInt16
+  let doy := doe - (365 * yoe + yoe / 4 - yoe / 100)
+  let mp := (5 * doy + 2) / 153
+  let day := doy - (153 * mp + 2) / 5 |>.toUInt8
+  let month := (if mp < 10 then mp + 2 else mp - 10) |>.toUInt8
+  let year := year + UInt16.ofBool (month ≤ 2)
+  let second := (t % 60).toUInt8
+  have second_lt : second.toNat < 60 := by
+    rewrite [UInt8.toNat]
+    show (t.toNat % 60) % UInt8.size < 60
+    have h1 : t.toNat % 60 < 60 := Nat.mod_lt t.toNat (by decide)
+    have : t.toNat % 60 < UInt8.size := Nat.lt_trans h1 (by decide)
+    rewrite [Nat.mod_eq_of_lt this]
+    exact h1
+  let minute := (t / 60) % 60 |>.toUInt8
+  have minute_lt : minute.toNat < 60 := by
+    rewrite [UInt8.toNat]
+    show ((t / 60).toNat % 60) % UInt8.size < 60
+    have h1 : (t / 60).toNat % 60 < 60 := Nat.mod_lt _ (by decide)
+    have : (t / 60).toNat % 60 < UInt8.size := Nat.lt_trans h1 (by decide)
+    rewrite [Nat.mod_eq_of_lt this]
+    exact h1
+  let hour := (t / 3600) % 24 |>.toUInt8
+  have hour_lt : hour.toNat < 24 := by
+    rewrite [UInt8.toNat]
+    show ((t / 3600).toNat % 24) % UInt8.size < 24
+    have h1 : (t / 3600).toNat % 24 < 24 := Nat.mod_lt _ (by decide)
+    have : (t / 3600).toNat % 24 < UInt8.size := Nat.lt_trans h1 (by decide)
+    rewrite [Nat.mod_eq_of_lt this]
+    exact h1
+  if h: 1000 ≤ year ∧ year ≤ 9999 ∧ month < 12 ∧ day < 31 -- m/d provable
+    then
+      {
+        year, month, day, hour, minute, second
+        year_ge_and_le := by rewrite [UInt16.toNat]; exact ⟨h.1, h.2.1⟩
+        month_lt := by rewrite [UInt8.toNat]; exact h.2.2.1
+        day_lt := by rewrite [UInt8.toNat]; exact h.2.2.2
+        hour_lt, minute_lt, second_lt
+      }
+    else
+      cond (year < 1000) DateTime.first DateTime.last
+
+def DateTime.toTimestamp (dt : DateTime) : UInt32 :=
+  let year := dt.year.toUInt32 - UInt32.ofBool (dt.month < 2)
+  let era := year / 400
+  let yoe := year - era * 400
+  let doy := (153 * (cond (dt.month > 1) (dt.month - 2) (dt.month + 10)).toUInt32 + 2) / 5 + dt.day.toUInt32;
+  let doe := yoe * 365 + yoe / 4 - yoe / 100 + doy
+  let days := Int64.ofUInt32 (era * 146097 + doe) - 719468
+  Int32.val $
+    Int32.ofUInt8 dt.second +
+    Int32.ofUInt8 dt.minute * 60 +
+    Int32.ofUInt8 dt.hour * 3600 +
+    days.toInt32 * 86400
 
 @[inline] private
 def appendDec2 (num : UInt8) (s : String) : String :=
@@ -290,17 +354,17 @@ protected def DataEntry.toString : DataEntry → String
 | bigint x    => toString x
 | float x  => optimizeFloatString $ toString x
 | double x  => optimizeFloatString $ toString x
-| timestamp t => (DateTime.ofTimestamp t).toString
-| date d => d.toString
-| datetime d => d.toString
+| timestamp t => s!"'{(DateTime.ofTimestamp t).toString}'"
+| date d => s!"'{d.toString}'"
+| datetime d => s!"'{d.toString}'"
 | char s => s!"'{s}'"
 | varchar s => s!"'{s}'"
+| text s => s!"'{s}'"
 | binary b => cond b.isEmpty "''" $ b.foldl appendHex "0x"
 | varbinary b => cond b.isEmpty "''" $ b.foldl appendHex "0x"
+| blob b => cond b.isEmpty "''" $ b.foldl appendHex "0x"
 | enum s => s!"'{s}'"
 | set ss => ss.foldl (λ acc s ↦ cond acc.isEmpty s $ acc.push ',' ++ s) "'" |>.push '\''
 | json x => x.compress
 
 instance : ToString DataEntry := ⟨DataEntry.toString⟩
-
-#eval DateTime.toString <$> DateTime.ofSubstring? "2023-11-20 10:45:29"

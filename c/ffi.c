@@ -27,14 +27,25 @@ static const char* ERR_CANT_INIT = "Failed to instantiate a connection with MySQ
 static const char* ERR_NO_MEM = "Not enough memory to allocate buffer.";
 static const char* ERR_INCR_BFFR = "Not enough memory. Try increasing the buffer size.";
 
-static const char* DATATYPE_TINYINT = "t";
-static const char* DATATYPE_SMALLINT = "s";
-static const char* DATATYPE_MEDIUMINT = "m";
-static const char* DATATYPE_INT = "i";
-static const char* DATATYPE_BIGINT = "b";
-static const char* DATATYPE_FLOAT = "f";
-static const char* DATATYPE_DOUBLE = "d";
-static const char* DATATYPE_STRING = "s";
+static const char* DATATYPE_TINYINT = "i1";
+static const char* DATATYPE_SMALLINT = "i2";
+static const char* DATATYPE_MEDIUMINT = "i3";
+static const char* DATATYPE_INT = "i4";
+static const char* DATATYPE_BIGINT = "i8";
+static const char* DATATYPE_FLOAT = "f4";
+static const char* DATATYPE_DOUBLE = "f8";
+static const char* DATATYPE_TIMESTAMP = "u";
+static const char* DATATYPE_DATE = "d";
+static const char* DATATYPE_DATETIME = "dt";
+static const char* DATATYPE_CHAR = "c";
+static const char* DATATYPE_VARCHAR = "vc";
+static const char* DATATYPE_TEXT = "cc";
+static const char* DATATYPE_BINARY = "b";
+static const char* DATATYPE_VARBINARY = "vb";
+static const char* DATATYPE_BLOB = "bb";
+static const char* DATATYPE_ENUM = "e";
+static const char* DATATYPE_SET = "s";
+static const char* DATATYPE_JSON = "j";
 
 static const char* VALUE_NULL = "NULL";
 
@@ -90,7 +101,7 @@ static char append_to_buffer(mysql* m, const char* s) {
     return 1;
 }
 
-static const char* type_to_str(int t) {
+static const char* type_to_str(int t, bool binary) {
     switch (t) {
         case MYSQL_TYPE_TINY:
             return DATATYPE_TINYINT;
@@ -108,8 +119,26 @@ static const char* type_to_str(int t) {
             return DATATYPE_DOUBLE;
         case MYSQL_TYPE_DECIMAL:
             return DATATYPE_DOUBLE; // TODO: Decimal type
+        case MYSQL_TYPE_TIMESTAMP:
+            return DATATYPE_TIMESTAMP;
+        case MYSQL_TYPE_DATE:
+            return DATATYPE_DATE;
+        case MYSQL_TYPE_DATETIME:
+            return DATATYPE_DATETIME;
+        case MYSQL_TYPE_STRING:
+            return binary ? DATATYPE_BINARY : DATATYPE_CHAR;
+        case MYSQL_TYPE_VAR_STRING:
+            return binary ? DATATYPE_VARBINARY : DATATYPE_VARCHAR;
+        case MYSQL_TYPE_BLOB:
+            return binary ? DATATYPE_BLOB : DATATYPE_TEXT;
+        case MYSQL_TYPE_ENUM:
+            return DATATYPE_ENUM;
+        case MYSQL_TYPE_SET:
+            return DATATYPE_SET;
+        case MYSQL_TYPE_JSON:
+            return DATATYPE_JSON;
         default:
-            return DATATYPE_STRING;
+            return DATATYPE_VARCHAR;
     }
 }
 
@@ -212,7 +241,7 @@ LEAN_EXPORT lean_obj_res lean_mysql_process_query_result(b_lean_obj_arg m_, lean
         if (!append_to_buffer(m, TYPE_SEP)) {
             return make_error(ERR_INCR_BFFR);
         }
-        if (!append_to_buffer(m, type_to_str(field->type))) {
+        if (!append_to_buffer(m, type_to_str(field->type, field->charsetnr == 63))) {
             return make_error(ERR_INCR_BFFR);
         }
         if (j < num_fields - 1) {

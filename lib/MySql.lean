@@ -19,10 +19,13 @@ builtin_initialize initMySql
 open Std (HashMap) in
 def dataTypeMap : HashMap String DataType :=
   HashMap.ofList [
-    ("i1", DataType.tinyint), ("i2", DataType.smallint), ("i3", DataType.mediumint),
-    ("i4", DataType.int), ("i8", DataType.bigint),
-    ("f4", DataType.float), ("f8", DataType.double),
-    ("s", DataType.string)
+    ("i1", .tinyint), ("i2", .smallint), ("i3", .mediumint),
+    ("i4", .int), ("i8", .bigint),
+    ("f4", .float), ("f8", .double),
+    ("u", .timestamp), ("d", .date), ("dt", .datetime),
+    ("c", .char), ("vc", .varchar), ("cc", .text),
+    ("b", .binary), ("vb", .varbinary), ("bb", .blob),
+    ("e", .enum), ("s", .set), ("j", .json)
   ]
 
 /- Builds a `DataFrame` from a properly formated `String` -/

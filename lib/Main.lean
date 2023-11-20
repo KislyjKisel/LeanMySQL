@@ -32,7 +32,7 @@ def main : IO Unit := do
     ]
   mysql.insertIntoTable "person" [1, "Alice", 20, 1.72, 1, 1]
   mysql.insertIntoTable "person" [2, "Bob", 21, 1.64, 2, 3]
-  mysql.insertIntoTable "person" [3, "Craig", 22, 1.76, NIL, 2]
+  mysql.insertIntoTable "person" [3, "Craig", 22, 1.76, .null, 2]
 
   let df ← mysql.query $
     SELECT name, age, height, job_name

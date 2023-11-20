@@ -17,16 +17,27 @@ inductive DataType
 | bigint
 | float
 | double
-| string
+| timestamp
+| date
+| datetime
+| char
+| varchar
+| text
+| binary
+| varbinary
+| blob
+| enum
+| set
+| json
 deriving Inhabited
 
 /- Prouces a `DataEntry` given its `DataType` and a `String` -/
 def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
   if s = "NULL" then .null
   else match dataType with
-  | DataType.tinyint => .tinyint s.toNat!.toUInt8
-  | DataType.smallint => .smallint s.toNat!.toUInt16
-  | DataType.mediumint =>
+  | .tinyint => .tinyint s.toNat!.toUInt8
+  | .smallint => .smallint s.toNat!.toUInt16
+  | .mediumint =>
     let n := s.toNat!
     if h: n < 2 ^ 24
       then .mediumint n.toUInt32 $ by
@@ -34,11 +45,22 @@ def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
         rewrite [Nat.mod_eq_of_lt $ Nat.lt_trans h (by decide)]
         exact h
       else panic! "mediumint ≥ 2^24"
-  | DataType.int => .int s.toNat!.toUInt32
-  | DataType.bigint => .int s.toNat!.toUInt32
-  | DataType.float => .float s.toFloat32?.get!
-  | DataType.double => .double $ toFloat! s
-  | DataType.string => s
+  | .int => .int s.toNat!.toUInt32
+  | .bigint => .int s.toNat!.toUInt32
+  | .float => .float s.toFloat32?.get!
+  | .double => .double $ toFloat! s
+  | .timestamp => DateTime.ofSubstring! s |>.toTimestamp
+  | .date => .date $ .ofSubstring! s
+  | .datetime => .datetime $ .ofSubstring! s
+  | .char => .char s
+  | .varchar => .varchar s
+  | .text => .text s
+  | .binary => panic! s!"not impl: parsing mysql binary, got {s}"
+  | .varbinary => panic! s!"not impl: parsing mysql binary, got {s}"
+  | .blob => panic! s!"not impl: parsing mysql binary, got {s}"
+  | .enum => .enum s
+  | .set => .set (s.splitOn ",").toArray
+  | .json => .json (Lean.Json.parse s).toOption.get!
 
 /- Whether a `DataEntry` is of a `DataType` or not -/
 @[simp] def DataEntry.ofType : DataEntry → DataType → Bool
@@ -49,7 +71,18 @@ def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
 | .bigint _, .bigint => true
 | .float _, .float => true
 | .double _, .double => true
-| .string _, .string => true
+| .timestamp _, .timestamp => true
+| .date _, .date => true
+| .datetime _, .datetime => true
+| .char _, .char => true
+| .varchar _, .varchar => true
+| .text _, .text => true
+| .binary _, .binary => true
+| .varbinary _, .varbinary => true
+| .blob _, .blob => true
+| .enum _, .enum => true
+| .set _, .set => true
+| .json _, .json => true
 | .null, _ => true
 | _, _ => false
 

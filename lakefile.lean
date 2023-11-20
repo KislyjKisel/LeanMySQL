@@ -33,13 +33,14 @@ package mysql {
 lean_lib MySql
 
 @[default_target]
-lean_exe Main {
+lean_exe «mysql-test» {
+  root := `Main
   moreLinkArgs := #["-L", libsDir, mySQLLinkArg]
 }
 
 extern_lib «mysql-ffi» pkg := do
-  let libFile := pkg.dir / defaultBuildDir / cDir / ffiLib
-  let oFile := pkg.dir / defaultBuildDir / cDir / ffiO
+  let libFile := pkg.buildDir / cDir / ffiLib
+  let oFile := pkg.buildDir / cDir / ffiO
   let srcTarget ← inputFile <| pkg.dir / ffiSrc
   let mut weakArgs := #["-I", (← getLeanIncludeDir).toString]
   let traceArgs := #["-I", includesDir]

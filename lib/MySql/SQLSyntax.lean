@@ -105,63 +105,63 @@ def negFloat (f : Float) : Float :=
 
 partial def elabEntry : TSyntax `entry → TermElabM Expr
   | `(entry|$v:num)            =>
-    mkAppM `MySql.DataEntry.EInt #[mkApp' `Int.ofNat (mkNatLit v.getNat)]
+    mkAppM ``MySql.DataEntry.int #[mkApp' ``UInt32.ofNat (mkNatLit v.getNat)]
   | `(entry|-$v:num)           =>
-    mkAppM `MySql.DataEntry.EInt $ match v.getNat with
-      | Nat.zero   => #[mkApp' `Int.ofNat (mkConst `Nat.zero)]
-      | Nat.succ n => #[mkApp' `Int.negSucc (mkNatLit n)]
+    mkAppM ``MySql.DataEntry.int $ match v.getNat with
+      | Nat.zero   => #[mkApp' ``Int.ofNat (mkConst ``Nat.zero)]
+      | Nat.succ n => #[mkApp' ``Int.negSucc (mkNatLit n)]
   | `(entry|$v:scientific)  => do
-    mkAppM `MySql.DataEntry.EFloat #[← Term.elabScientificLit v (mkConst `Float)]
+    mkAppM ``MySql.DataEntry.double #[← Term.elabScientificLit v (mkConst `Float)]
   | `(entry|-$v:scientific) => do
-    let f ← Term.elabScientificLit v (mkConst `Float)
-    mkAppM `MySql.DataEntry.EFloat #[mkApp' `negFloat f]
+    let f ← Term.elabScientificLit v (mkConst ``Float)
+    mkAppM ``MySql.DataEntry.double #[mkApp' ``MySql.negFloat f]
   | `(entry|$v:str)            =>
-    mkAppM `MySql.DataEntry.EString #[mkStrLit v.getString]
-  | `(entry|NULL)              => elabConst `MySql.DataEntry.ENull
+    mkAppM ``MySql.DataEntry.varchar #[mkStrLit v.getString]
+  | `(entry|NULL)              => elabConst ``MySql.DataEntry.null
   | `(entry|($e:entry))        => elabEntry e
   | _                          => throwUnsupportedSyntax
 
 def elabPropSymbol (stx : Syntax) (isEntry : Bool) : TermElabM Name :=
   match stx with
-  | `(propSymbol|=)  => pure $ if isEntry then `MySql.SQLProp.eqE else `MySql.SQLProp.eqC
-  | `(propSymbol|<>) => pure $ if isEntry then `MySql.SQLProp.neE else `MySql.SQLProp.neC
-  | `(propSymbol|!=) => pure $ if isEntry then `MySql.SQLProp.neE else `MySql.SQLProp.neC
-  | `(propSymbol|<)  => pure $ if isEntry then `MySql.SQLProp.ltE else `MySql.SQLProp.ltC
-  | `(propSymbol|<=) => pure $ if isEntry then `MySql.SQLProp.leE else `MySql.SQLProp.leC
-  | `(propSymbol|>)  => pure $ if isEntry then `MySql.SQLProp.gtE else `MySql.SQLProp.gtC
-  | `(propSymbol|>=) => pure $ if isEntry then `MySql.SQLProp.geE else `MySql.SQLProp.geC
+  | `(propSymbol|=)  => pure $ if isEntry then ``MySql.SQLProp.eqE else ``MySql.SQLProp.eqC
+  | `(propSymbol|<>) => pure $ if isEntry then ``MySql.SQLProp.neE else ``MySql.SQLProp.neC
+  | `(propSymbol|!=) => pure $ if isEntry then ``MySql.SQLProp.neE else ``MySql.SQLProp.neC
+  | `(propSymbol|<)  => pure $ if isEntry then ``MySql.SQLProp.ltE else ``MySql.SQLProp.ltC
+  | `(propSymbol|<=) => pure $ if isEntry then ``MySql.SQLProp.leE else ``MySql.SQLProp.leC
+  | `(propSymbol|>)  => pure $ if isEntry then ``MySql.SQLProp.gtE else ``MySql.SQLProp.gtC
+  | `(propSymbol|>=) => pure $ if isEntry then ``MySql.SQLProp.geE else ``MySql.SQLProp.geC
   | _                => throwUnsupportedSyntax
 
 partial def elabProp : Syntax → TermElabM Expr
-  | `(prop|TRUE)                              => elabConst `MySql.SQLProp.tt
-  | `(prop|FALSE)                             => elabConst `MySql.SQLProp.ff
+  | `(prop|TRUE)                              => elabConst ``MySql.SQLProp.tt
+  | `(prop|FALSE)                             => elabConst ``MySql.SQLProp.ff
   | `(prop|$l:parsId $s:propSymbol $r:parsId) => do
     mkAppM (← elabPropSymbol s false) #[← elabStrOfParsId l, ← elabStrOfParsId r]
   | `(prop|$c:parsId $s:propSymbol $e:entry)  => do
     mkAppM (← elabPropSymbol s true) #[← elabStrOfParsId c, ← elabEntry e]
   | `(prop|$l:prop AND $r:prop)               => do
-    mkAppM `MySql.SQLProp.and #[← elabProp l, ← elabProp r]
+    mkAppM ``MySql.SQLProp.and #[← elabProp l, ← elabProp r]
   | `(prop|$l:prop OR $r:prop)                => do
-    mkAppM `MySql.SQLProp.or #[← elabProp l, ← elabProp r]
+    mkAppM ``MySql.SQLProp.or #[← elabProp l, ← elabProp r]
   | `(prop|NOT $p:prop)                       => do
-    mkAppM `MySql.SQLProp.not #[← elabProp p]
+    mkAppM ``MySql.SQLProp.not #[← elabProp p]
   | `(prop|($p:prop))                         => elabProp p
   | _                                         => throwUnsupportedSyntax
 
 def elabJoin : Syntax → TermElabM Expr
-  | `(join|INNER) => elabConst `MySql.SQLJoin.inner
-  | `(join|LEFT)  => elabConst `MySql.SQLJoin.left
-  | `(join|RIGHT) => elabConst `MySql.SQLJoin.right
-  | `(join|OUTER) => elabConst `MySql.SQLJoin.outer
+  | `(join|INNER) => elabConst ``MySql.SQLJoin.inner
+  | `(join|LEFT)  => elabConst ``MySql.SQLJoin.left
+  | `(join|RIGHT) => elabConst ``MySql.SQLJoin.right
+  | `(join|OUTER) => elabConst ``MySql.SQLJoin.outer
   | _             => throwUnsupportedSyntax
 
 partial def elabFrom : Syntax → TermElabM Expr
-  | `(sqlFrom|$t:ident)               => mkAppM `MySql.SQLFrom.table #[mkStrOfIdent t]
+  | `(sqlFrom|$t:ident)               => mkAppM ``MySql.SQLFrom.table #[mkStrOfIdent t]
   | `(sqlFrom|$f:sqlFrom AS $t:ident) => do
-    mkAppM `MySql.SQLFrom.alias #[← elabFrom f, mkStrOfIdent t]
-  | `(sqlFrom|$t₁:sqlFrom, $t₂:sqlFrom) => do mkAppM `MySql.SQLFrom.implicitJoin #[← elabFrom t₁, ← elabFrom t₂]
+    mkAppM ``MySql.SQLFrom.alias #[← elabFrom f, mkStrOfIdent t]
+  | `(sqlFrom|$t₁:sqlFrom, $t₂:sqlFrom) => do mkAppM ``MySql.SQLFrom.implicitJoin #[← elabFrom t₁, ← elabFrom t₂]
   | `(sqlFrom|$l:sqlFrom $j:join JOIN $r:sqlFrom ON $p:prop) => do
-    mkAppM `MySql.SQLFrom.join #[← elabJoin j, ← elabFrom l, ← elabFrom r, ← elabProp p]
+    mkAppM ``MySql.SQLFrom.join #[← elabJoin j, ← elabFrom l, ← elabFrom r, ← elabProp p]
   | `(sqlFrom|($f:sqlFrom))           => elabFrom f
   | _                                 => throwUnsupportedSyntax
 
@@ -169,7 +169,7 @@ partial def elabFrom : Syntax → TermElabM Expr
   match stx with
   | `(query| SELECT $sel FROM $frm $[WHERE $prp]?) => do
     let whr ← match prp with
-    | none     => elabConst `MySql.SQLProp.tt
+    | none     => elabConst ``MySql.SQLProp.tt
     | some prp => elabProp prp
-    mkAppM `MySql.SQLQuery.mk #[← elabSelect sel, ← elabFrom frm, whr]
+    mkAppM ``MySql.SQLQuery.mk #[← elabSelect sel, ← elabFrom frm, whr]
   | _ => throwUnsupportedSyntax
