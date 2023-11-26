@@ -197,6 +197,9 @@ instance {n} : OfNat DataEntry n where
     else
       .varchar (toString n)
 
+instance : Coe Bool DataEntry where
+  coe := DataEntry.tinyint ∘ UInt8.ofBool
+
 instance : Coe UInt8 DataEntry where
   coe := DataEntry.tinyint
 
