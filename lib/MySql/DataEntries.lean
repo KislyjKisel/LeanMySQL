@@ -268,6 +268,13 @@ def appendHex (acc : String) (b : UInt8) : String :=
       '*'
   acc.push (f $ b >>> 4) |>.push (f $ b &&& 15)
 
+def _root_.ByteArray.toHexString (data : ByteArray) : String :=
+  data.foldl appendHex ""
+
+private
+def toStringBytes (data : ByteArray) : String :=
+  cond data.isEmpty "''" $ "0x" ++ data.toHexString
+
 def DateTime.ofTimestamp (t : UInt32) : DateTime :=
   let z := t / 86400 + 719468
   let era := z / 146097
@@ -364,9 +371,9 @@ protected def DataEntry.toString : DataEntry → String
 | char s => s!"'{s}'"
 | varchar s => s!"'{s}'"
 | text s => s!"'{s}'"
-| binary b => cond b.isEmpty "''" $ b.foldl appendHex "0x"
-| varbinary b => cond b.isEmpty "''" $ b.foldl appendHex "0x"
-| blob b => cond b.isEmpty "''" $ b.foldl appendHex "0x"
+| binary b => toStringBytes b
+| varbinary b => toStringBytes b
+| blob b => toStringBytes b
 | enum s => s!"'{s}'"
 | set ss => ss.foldl (λ acc s ↦ cond acc.isEmpty s $ acc.push ',' ++ s) "'" |>.push '\''
 | json x => x.compress
