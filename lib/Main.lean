@@ -23,16 +23,16 @@ def main : IO Unit := do
   mysql.insertIntoTable "job" [2, "Mathematician"]
 
   mysql.createTable "person" [
-      ("id", "INT PRIMARY KEY"),
+      ("id", "SERIAL PRIMARY KEY"),
       ("name", "VARCHAR(255)"),
       ("age", "INT"),
       ("height", "FLOAT"),
       ("job_id", "INT"),
       ("country_id", "INT")
     ]
-  mysql.insertIntoTable "person" [1, "Alice", 20, 1.72, 1, 1]
-  mysql.insertIntoTable "person" [2, "Bob", 21, 1.64, 2, 3]
-  mysql.insertIntoTable "person" [3, "Craig", 22, 1.76, .null, 2]
+  mysql.insertIntoTable "person" [.default, "Alice", 20, 1.72, 1, 1]
+  mysql.insertIntoTable "person" [.default, "Bob", 21, 1.64, 2, 3]
+  mysql.insertIntoTable "person" [.default, "Craig", 22, 1.76, .null, 2]
 
   let df ← mysql.query $
     SELECT name, age, height, job_name

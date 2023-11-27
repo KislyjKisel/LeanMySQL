@@ -161,6 +161,7 @@ def DateTime.last : DateTime := .ofSubstring! "9999-12-31 23:59:59"
 
 inductive DataEntry where
 | null
+| default
 | tinyint (x : UInt8)
 | smallint (x : UInt16)
 | mediumint (x : UInt32) (h : x.toNat < 2 ^ 24)
@@ -349,6 +350,7 @@ def DateTime.toString (dt : DateTime) : String :=
 
 protected def DataEntry.toString : DataEntry → String
 | null => "NULL"
+| default => "DEFAULT"
 | tinyint x => toString x
 | smallint x => toString x
 | mediumint x _ => toString x
