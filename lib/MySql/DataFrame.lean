@@ -29,7 +29,7 @@ inductive DataType
 | enum
 | set
 | json
-deriving Inhabited
+deriving Inhabited, Repr
 
 /- Prouces a `DataEntry` given its `DataType` and a `String` -/
 def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
@@ -46,7 +46,7 @@ def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
         exact h
       else panic! "mediumint ≥ 2^24"
   | .int => .int s.toNat!.toUInt32
-  | .bigint => .int s.toNat!.toUInt32
+  | .bigint => .bigint s.toNat!.toUInt64
   | .float => .float s.toFloat32?.get!
   | .double => .double $ toFloat! s
   | .timestamp => DateTime.ofSubstring! s |>.toTimestamp
@@ -85,6 +85,51 @@ def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
 | .json _, .json => true
 | .null, _ => true
 | _, _ => false
+
+instance : ToString DataType where
+  toString
+  | .tinyint => "tinyint"
+  | .smallint => "smallint"
+  | .mediumint => "mediumint"
+  | .int => "int"
+  | .bigint => "bigint"
+  | .float => "float"
+  | .double => "double"
+  | .timestamp => "timestamp"
+  | .date => "date"
+  | .datetime => "datetime"
+  | .char => "char"
+  | .varchar => "varchar"
+  | .text => "text"
+  | .binary => "binary"
+  | .varbinary => "varbinary"
+  | .blob => "blob"
+  | .enum => "enum"
+  | .set => "set"
+  | .json => "json"
+
+def DataEntry.type? : DataEntry → Option DataType
+| .null => none
+| .default => none
+| .tinyint _ => some .tinyint
+| .smallint _ => some .smallint
+| .mediumint _ _ => some .mediumint
+| .int _ => some .int
+| .bigint _ => some .bigint
+| .float _ => some .float
+| .double _ => some .double
+| .char _ => some .char
+| .varchar _ => some .varchar
+| .text _ => some .text
+| .binary _ => some .binary
+| .varbinary _ => some .varbinary
+| .blob _ => some .blob
+| .enum _ => some .enum
+| .set _ => some .set
+| .json _ => some .json
+| .date _ => some .date
+| .datetime _ => some .datetime
+| .timestamp _ => some .timestamp
 
 abbrev Header := List (DataType × String)
 
