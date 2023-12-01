@@ -250,15 +250,15 @@ LEAN_EXPORT lean_obj_res lean_mysql_process_query_result(b_lean_obj_arg m_, lean
             }
         }
     }
-    if (!append_to_buffer(m, LINE_SEP)) {
-        return make_error(ERR_INCR_BFFR);
-    }
 
     // encoding data
     int num_rows = mysql_num_rows(m->result);
     MYSQL_ROW row;
 
     for (int i = 0; i < num_rows; i++) {
+        if (!append_to_buffer(m, LINE_SEP)) {
+            return make_error(ERR_INCR_BFFR);
+        }
         row = mysql_fetch_row(m->result);
         for(int j = 0; j < num_fields; j++) {
             if (!append_to_buffer(m, row[j] ? row[j] : VALUE_NULL)) {
@@ -268,11 +268,6 @@ LEAN_EXPORT lean_obj_res lean_mysql_process_query_result(b_lean_obj_arg m_, lean
                 if (!append_to_buffer(m, COL_SEP)) {
                     return make_error(ERR_INCR_BFFR);
                 }
-            }
-        }
-        if (i < num_rows - 1) {
-            if (!append_to_buffer(m, LINE_SEP)) {
-                return make_error(ERR_INCR_BFFR);
             }
         }
     }
