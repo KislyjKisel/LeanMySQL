@@ -23,44 +23,46 @@ inductive DataType
 | char
 | varchar
 | text
-| binary
-| varbinary
-| blob
 | enum
 | set
 | json
 deriving Inhabited, Repr
 
 /- Prouces a `DataEntry` given its `DataType` and a `String` -/
-def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
-  if s = "NULL" then .null
+def DataType.entryOfString? (dataType : DataType) (s : String) : Except String DataEntry :=
+  if s = "NULL" then .ok .null
   else match dataType with
-  | .tinyint => .tinyint s.toNat!.toUInt8
-  | .smallint => .smallint s.toNat!.toUInt16
-  | .mediumint =>
-    let n := s.toNat!
+  | .tinyint => s.toNat?.elim (.error s!"can't parse {s} as a Nat") (.ok ∘ .tinyint ∘ Nat.toUInt8)
+  | .smallint => s.toNat?.elim (.error s!"can't parse {s} as a Nat") (.ok ∘ .smallint ∘ Nat.toUInt16)
+  | .mediumint => do
+    let n ← s.toNat?.elim (.error s!"can't parse {s} as a Nat") .ok
     if h: n < 2 ^ 24
-      then .mediumint n.toUInt32 $ by
-        show n % 2 ^ 32 < 2 ^ 24
-        rewrite [Nat.mod_eq_of_lt $ Nat.lt_trans h (by decide)]
-        exact h
-      else panic! "mediumint ≥ 2^24"
-  | .int => .int s.toNat!.toUInt32
-  | .bigint => .bigint s.toNat!.toUInt64
-  | .float => .float s.toFloat32?.get!
-  | .double => .double $ toFloat! s
-  | .timestamp => DateTime.ofSubstring! s |>.toTimestamp
-  | .date => .date $ .ofSubstring! s
-  | .datetime => .datetime $ .ofSubstring! s
-  | .char => .char s
-  | .varchar => .varchar s
-  | .text => .text s
-  | .binary => .binary s.toUTF8
-  | .varbinary => .varbinary s.toUTF8
-  | .blob => .blob s.toUTF8
-  | .enum => .enum s
-  | .set => .set (s.splitOn ",").toArray
-  | .json => .json (Lean.Json.parse s).toOption.get!
+      then
+        .ok $ .mediumint n.toUInt32 $ by
+          show n % 2 ^ 32 < 2 ^ 24
+          rewrite [Nat.mod_eq_of_lt $ Nat.lt_trans h (by decide)]
+          exact h
+      else
+        .error "mediumint ≥ 2^24"
+  | .int => s.toNat?.elim (.error s!"can't parse {s} as a Nat") (.ok ∘ .int ∘ Nat.toUInt32)
+  | .bigint => s.toNat?.elim (.error s!"can't parse {s} as a Nat") (.ok ∘ .bigint ∘ Nat.toUInt64)
+  | .float => s.toFloat32?.elim (.error s!"can't parse {s} as a f32") (.ok ∘ .float)
+  | .double => s.toFloat32?.elim (.error s!"can't parse {s} as a f64") (.ok ∘ .double ∘ Pod.Float32.toFloat)
+  | .timestamp => (DateTime.ofSubstring? s).elim (.error s!"can't parse {s} as a datetime") (.ok ∘ .timestamp ∘ DateTime.toTimestamp)
+  | .date => (DateTime.ofSubstring? s).elim (.error s!"can't parse {s} as a datetime") (.ok ∘ .date ∘ DateTime.toDate)
+  | .datetime => (DateTime.ofSubstring? s).elim (.error s!"can't parse {s} as a datetime") (.ok ∘ .datetime)
+  | .char => .ok $ .char s
+  | .varchar => .ok $ .varchar s
+  | .text => .ok $ .text s
+  | .enum => .ok $ .enum s
+  | .set => .ok $ .set (s.splitOn ",").toArray
+  | .json => .json <$> Lean.Json.parse s
+
+/- Prouces a `DataEntry` given its `DataType` and a `String` -/
+def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
+  match dataType.entryOfString? s with
+  | .error e => panic! e
+  | .ok x => x
 
 /- Whether a `DataEntry` is of a `DataType` or not -/
 @[simp] def DataEntry.ofType : DataEntry → DataType → Bool
@@ -77,9 +79,6 @@ def DataType.entryOfString! (dataType : DataType) (s : String) : DataEntry :=
 | .char _, .char => true
 | .varchar _, .varchar => true
 | .text _, .text => true
-| .binary _, .binary => true
-| .varbinary _, .varbinary => true
-| .blob _, .blob => true
 | .enum _, .enum => true
 | .set _, .set => true
 | .json _, .json => true
@@ -101,9 +100,6 @@ instance : ToString DataType where
   | .char => "char"
   | .varchar => "varchar"
   | .text => "text"
-  | .binary => "binary"
-  | .varbinary => "varbinary"
-  | .blob => "blob"
   | .enum => "enum"
   | .set => "set"
   | .json => "json"
@@ -121,9 +117,6 @@ def DataEntry.type? : DataEntry → Option DataType
 | .char _ => some .char
 | .varchar _ => some .varchar
 | .text _ => some .text
-| .binary _ => some .binary
-| .varbinary _ => some .varbinary
-| .blob _ => some .blob
 | .enum _ => some .enum
 | .set _ => some .set
 | .json _ => some .json

@@ -24,7 +24,6 @@ def dataTypeMap : HashMap String DataType :=
     ("f4", .float), ("f8", .double),
     ("u", .timestamp), ("d", .date), ("dt", .datetime),
     ("c", .char), ("vc", .varchar), ("cc", .text),
-    ("b", .binary), ("vb", .varbinary), ("bb", .blob),
     ("e", .enum), ("s", .set), ("j", .json)
   ]
 
@@ -50,6 +49,34 @@ def DataFrame.fromString (s : String) : DataFrame := Id.run do
         else
           panic! s!"inconsistent entries: {entries}"
       df
+
+def DataFrame.fromString' (s : String) : IO DataFrame := do
+  if s.isEmpty then pure DataFrame.empty
+  else
+    let typeSep : String := "^^"
+    let colSep  : String := "~~"
+    let lineSep : String := "¨¨"
+    let lines : List String := s.splitOn lineSep
+    if h : lines = [] then pure DataFrame.empty
+    else
+      let mut header : Header := []
+      for headerPart in (lines.head h).splitOn colSep do
+        match headerPart.splitOn typeSep with
+        | [fieldName, fieldType] =>
+          match dataTypeMap.find? fieldType with
+          | none =>
+            IO.eprintln s!"LeanMySql: unknown data type '{fieldType}'"
+          | some dataType =>
+            header := header.concat (dataType, fieldName)
+        | field => IO.eprintln s!"LeanMySql: can't parse field '{field}' in header"
+      let mut df : DataFrame := DataFrame.empty header
+      for row in lines.tailD [] do
+        let entries := entriesOfStrings! df.colTypes $ row.splitOn colSep
+        if ht : entries.ofTypes df.colTypes then
+          df := df.addRow entries ht
+        else
+          IO.eprintln s!"LeanMySql: can't verify row {entries} has types {df.colTypes}"
+      pure df
 
 abbrev MySqlScheme := List (String × String)
 

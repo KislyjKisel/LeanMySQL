@@ -175,9 +175,6 @@ inductive DataEntry where
 | char (s : String)
 | varchar (s : String)
 | text (s : String)
-| binary (b : ByteArray)
-| varbinary (b : ByteArray)
-| blob (b : ByteArray)
 | enum (s : String)
 | set (ss : Array String)
 | json (x : Lean.Json)
@@ -371,9 +368,6 @@ protected def DataEntry.toString : DataEntry → String
 | char s => s!"'{s}'"
 | varchar s => s!"'{s}'"
 | text s => s!"'{s}'"
-| binary b => toStringBytes b
-| varbinary b => toStringBytes b
-| blob b => toStringBytes b
 | enum s => s!"'{s}'"
 | set ss => ss.foldl (λ acc s ↦ cond acc.isEmpty s $ acc.push ',' ++ s) "'" |>.push '\''
 | json x => x.compress
